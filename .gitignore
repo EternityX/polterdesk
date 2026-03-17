@@ -1,0 +1,17 @@
+/target
+*.rs.bk
+*.rlib
+*.prof*
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+*.tmp
+.env*
+*.log
+
+# Website
+website/node_modules/
+website/dist/
