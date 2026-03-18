@@ -5,7 +5,7 @@
 <h1 align="center">Polterdesk</h1>
 
 <p align="center">
-  Toggle desktop icon and taskbar visibility with a double-click or hotkey.<br />
+  Toggle desktop icon and taskbar visibility on Windows with a double-click or hotkey.<br />
   A tiny Windows utility that stays out of your way.
 </p>
 
