@@ -10,8 +10,18 @@ mod winapi_thread;
 use app_state::{AppEvent, AppState};
 use settings::Settings;
 use std::sync::mpsc;
+use windows::core::w;
+use windows::Win32::Foundation::ERROR_ALREADY_EXISTS;
+use windows::Win32::System::Threading::CreateMutexW;
 
 fn main() {
+    // SAFETY: CreateMutexW with no security attributes and a fixed name is safe.
+    // We keep `_mutex` alive for the process lifetime to hold the lock.
+    let _mutex = unsafe { CreateMutexW(None, true, w!("Polterdesk_SingleInstance")) };
+    if unsafe { windows::Win32::Foundation::GetLastError() } == ERROR_ALREADY_EXISTS {
+        return;
+    }
+
     let mut settings = Settings::load();
 
     // Crash recovery: restore taskbar if it was left in app-controlled auto-hide
