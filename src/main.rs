@@ -22,6 +22,9 @@ fn main() {
         return;
     }
 
+    // When launched at boot via the Run registry key, Explorer may not be fully initialized yet.
+    wait_for_shell();
+
     let mut settings = Settings::load();
 
     // Crash recovery: restore taskbar if it was left in app-controlled auto-hide
@@ -127,4 +130,18 @@ fn main() {
         })
         .detach();
     });
+}
+
+/// Blocks until the Explorer shell is ready (Shell_TrayWnd exists), up to 30 seconds.
+fn wait_for_shell() {
+    use windows::Win32::UI::WindowsAndMessaging::FindWindowW;
+
+    let class = windows::core::HSTRING::from("Shell_TrayWnd");
+    for _ in 0..60 {
+        // SAFETY: FindWindowW is a read-only query for a top-level window by class name.
+        if unsafe { FindWindowW(&class, None) }.is_ok() {
+            return;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(500));
+    }
 }
