@@ -16,6 +16,10 @@
 
 ---
 
+<p align="center">
+  <img src="https://github.com/EternityX/polterdesk/blob/master/assets/image.png" alt="Polterdesk" width="512" height="512" />
+</p>
+
 ## Features
 
 - **Double-click** an empty area of your desktop to hide/show all icons
