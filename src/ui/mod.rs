@@ -2,8 +2,8 @@ pub mod hotkey_input;
 pub mod settings_window;
 pub mod theme;
 
-use crate::app_state::AppEvent;
-use crate::settings::Settings;
+use crate::app_state::{AppEvent, SharedState};
+use crate::settings::{CloseBehavior, MinimizeBehavior, Settings};
 use gpui::*;
 use settings_window::SettingsView;
 use std::sync::mpsc;
@@ -18,23 +18,22 @@ fn with_hwnd(window: &Window, f: impl FnOnce(windows::Win32::Foundation::HWND)) 
 }
 
 /// Opens the settings window.
-/// - Minimize button hides to tray.
-/// - Close button shows a confirmation dialog.
-///
 /// Returns the window handle for later re-show.
 pub fn open_settings(
     cx: &mut App,
     settings: Settings,
     event_tx: mpsc::Sender<AppEvent>,
-    state: crate::app_state::SharedState,
+    state: SharedState,
 ) -> Option<AnyWindowHandle> {
-    let bounds = Bounds::centered(None, size(px(450.0), px(330.0)), cx);
+    let close_state = state.clone();
+    let close_tx = event_tx.clone();
+    let bounds = Bounds::centered(None, size(px(530.0), px(405.0)), cx);
     let window_handle = cx
         .open_window(
             WindowOptions {
                 window_bounds: Some(WindowBounds::Windowed(bounds)),
                 titlebar: Some(TitlebarOptions {
-                    title: Some(format!("Polterdesk v{}", env!("CARGO_PKG_VERSION")).into()),
+                    title: Some("Polterdesk".into()),
                     ..Default::default()
                 }),
                 is_resizable: false,
@@ -53,18 +52,27 @@ pub fn open_settings(
                     }
                 });
 
-                // Intercept close: hide to tray instead of closing
+                // Intercept close: behavior depends on settings
                 window.on_window_should_close(cx, move |window, _cx| {
-                    with_hwnd(window, |hwnd| {
-                        // SAFETY: Hiding the window to tray on close button click.
-                        unsafe {
-                            let _ = windows::Win32::UI::WindowsAndMessaging::ShowWindow(
-                                hwnd,
-                                windows::Win32::UI::WindowsAndMessaging::SW_HIDE,
-                            );
+                    let behavior = close_state.lock().unwrap().settings.close_behavior;
+                    match behavior {
+                        CloseBehavior::Tray => {
+                            with_hwnd(window, |hwnd| {
+                                // SAFETY: Hiding the window to tray on close button click.
+                                unsafe {
+                                    let _ = windows::Win32::UI::WindowsAndMessaging::ShowWindow(
+                                        hwnd,
+                                        windows::Win32::UI::WindowsAndMessaging::SW_HIDE,
+                                    );
+                                }
+                            });
+                            false // Prevent GPUI from destroying the window
                         }
-                    });
-                    false // Prevent GPUI from destroying the window
+                        CloseBehavior::Exit => {
+                            let _ = close_tx.send(AppEvent::ExitRequested);
+                            false // Let the exit handler do cleanup
+                        }
+                    }
                 });
 
                 let view = cx.new(|cx| SettingsView::new(settings, event_tx, state, cx));
@@ -76,9 +84,15 @@ pub fn open_settings(
     window_handle.map(|h| h.into())
 }
 
-/// Checks if the window is minimized and hides it instead (minimize to tray).
+/// Checks if the window is minimized. Depending on settings, either leaves it
+/// minimized to taskbar or hides it to tray.
 /// Called from the polling loop in main.rs.
-pub fn check_minimize_to_tray(handle: AnyWindowHandle, cx: &mut App) {
+pub fn check_minimize_behavior(handle: AnyWindowHandle, state: &SharedState, cx: &mut App) {
+    let behavior = state.lock().unwrap().settings.minimize_behavior;
+    if behavior == MinimizeBehavior::Taskbar {
+        return; // Let Windows handle normal minimize to taskbar
+    }
+
     handle
         .update(cx, |_, window, _cx| {
             with_hwnd(window, |hwnd| {
@@ -98,6 +112,23 @@ pub fn check_minimize_to_tray(handle: AnyWindowHandle, cx: &mut App) {
                             windows::Win32::UI::WindowsAndMessaging::SW_HIDE,
                         );
                     }
+                }
+            });
+        })
+        .ok();
+}
+
+/// Hides the settings window to tray.
+pub fn hide_window(handle: AnyWindowHandle, cx: &mut App) {
+    handle
+        .update(cx, |_, window, _cx| {
+            with_hwnd(window, |hwnd| {
+                // SAFETY: Hiding the window to tray.
+                unsafe {
+                    let _ = windows::Win32::UI::WindowsAndMessaging::ShowWindow(
+                        hwnd,
+                        windows::Win32::UI::WindowsAndMessaging::SW_HIDE,
+                    );
                 }
             });
         })

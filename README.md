@@ -20,6 +20,8 @@
   <img src="https://github.com/EternityX/polterdesk/blob/master/assets/image.png" alt="Polterdesk" width="512" height="512" />
 </p>
 
+Inspired by [Stardock Fences'](https://www.stardock.com/products/fences/) double-click to hide/show desktop icons feature. **Polterdesk** is a lightweight, open-source, and most importantly, free alternative to that feature.
+
 ## Features
 
 - **Double-click** an empty area of your desktop to hide/show all icons
@@ -35,7 +37,7 @@
 
 ## Usage
 
-1. Download `polterdesk.exe` from the [latest release](https://github.com/EternityX/polterdesk/releases)
+1. Download `polterdesk.exe` from the [releases page](https://github.com/EternityX/polterdesk/releases)
 2. Run it - a tray icon appears in the notification area
 3. **Double-click** the desktop to hide icons, double-click again to show them
 4. Or press **Ctrl+Alt+H** from anywhere
@@ -47,6 +49,9 @@ Right-click the tray icon and select **Open** (or single-click) to access settin
 - **Hotkey** - click the field and press a new key combination to change it
 - **Start with Windows** - launch automatically on login
 - **Also hide taskbar** - toggle the taskbar alongside icons
+
+### Planned
+- macOS support
 
 ## Building from Source
 

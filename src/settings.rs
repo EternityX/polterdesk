@@ -49,6 +49,24 @@ impl HotkeyBinding {
     }
 }
 
+/// Behavior when the settings window minimize button is clicked.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MinimizeBehavior {
+    Taskbar,
+    #[default]
+    Tray,
+}
+
+/// Behavior when the settings window close button is clicked.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CloseBehavior {
+    Exit,
+    #[default]
+    Tray,
+}
+
 /// UI theme mode.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -61,7 +79,8 @@ pub enum ThemeMode {
 /// User settings persisted to %APPDATA%\Polterdesk\settings.json.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
-    pub hotkey: HotkeyBinding,
+    #[serde(default = "default_hotkey")]
+    pub hotkey: Option<HotkeyBinding>,
     pub start_with_windows: bool,
     pub theme_mode: ThemeMode,
     /// When true, all toggle actions (hotkey + double-click) also toggle taskbar auto-hide.
@@ -70,6 +89,15 @@ pub struct Settings {
     /// Separate hotkey for taskbar toggle; active only when hide_taskbar_with_icons is false.
     #[serde(default)]
     pub taskbar_hotkey: Option<HotkeyBinding>,
+    /// When true, the app starts hidden in the system tray (no settings window shown).
+    #[serde(default)]
+    pub start_minimized: bool,
+    /// What happens when the minimize button is clicked.
+    #[serde(default)]
+    pub minimize_behavior: MinimizeBehavior,
+    /// What happens when the close button is clicked.
+    #[serde(default)]
+    pub close_behavior: CloseBehavior,
     /// Persisted original taskbar state for crash recovery; cleared after restore.
     #[serde(default)]
     pub taskbar_original_state: Option<u32>,
@@ -79,13 +107,20 @@ fn default_true() -> bool {
     true
 }
 
+fn default_hotkey() -> Option<HotkeyBinding> {
+    Some(HotkeyBinding::default())
+}
+
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            hotkey: HotkeyBinding::default(),
+            hotkey: Some(HotkeyBinding::default()),
             start_with_windows: false,
             theme_mode: ThemeMode::Dark,
             hide_taskbar_with_icons: true,
+            start_minimized: false,
+            minimize_behavior: MinimizeBehavior::Tray,
+            close_behavior: CloseBehavior::Tray,
             taskbar_hotkey: None,
             taskbar_original_state: None,
         }
@@ -117,10 +152,12 @@ impl Settings {
         match serde_json::from_str::<Settings>(&contents) {
             Ok(mut settings) => {
                 // Validate hotkey - revert to default if invalid
-                if !settings.hotkey.is_valid() {
-                    eprintln!("Invalid hotkey in settings, reverting to default");
-                    settings.hotkey = HotkeyBinding::default();
-                    let _ = settings.save();
+                if let Some(ref hk) = settings.hotkey {
+                    if !hk.is_valid() {
+                        eprintln!("Invalid hotkey in settings, reverting to default");
+                        settings.hotkey = Some(HotkeyBinding::default());
+                        let _ = settings.save();
+                    }
                 }
                 settings
             }

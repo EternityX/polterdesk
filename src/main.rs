@@ -53,8 +53,16 @@ fn main() {
             let guard = state.lock().unwrap();
             let s = guard.settings.clone();
             let tx = guard.gpui_tx.clone();
+            let start_minimized = s.start_minimized;
             drop(guard);
-            ui::open_settings(cx, s, tx, state.clone())
+            let handle = ui::open_settings(cx, s, tx, state.clone());
+            // If "start minimized" is enabled, hide the window immediately
+            if start_minimized {
+                if let Some(h) = handle {
+                    ui::hide_window(h, cx);
+                }
+            }
+            handle
         };
 
         // Poll the event channel on a 50ms interval
@@ -64,10 +72,10 @@ fn main() {
                     .timer(std::time::Duration::from_millis(50))
                     .await;
 
-                // Check if the window was minimized - hide to tray instead
+                // Check if the window was minimized - behavior depends on settings
                 if let Some(handle) = settings_window {
                     let _ = cx.update(|cx| {
-                        ui::check_minimize_to_tray(handle, cx);
+                        ui::check_minimize_behavior(handle, &state, cx);
                     });
                 }
 

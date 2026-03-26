@@ -71,11 +71,13 @@ fn run_message_loop(state: SharedState) {
         // Register hotkeys
         {
             let guard = state.lock().unwrap();
-            if let Err(e) = hotkey::register(hwnd, &guard.settings.hotkey) {
-                eprintln!("Failed to register hotkey: {:?}", e);
-                let _ = guard
-                    .gpui_tx
-                    .send(AppEvent::HotkeyConflict(guard.settings.hotkey.clone()));
+            if let Some(ref binding) = guard.settings.hotkey {
+                if let Err(e) = hotkey::register(hwnd, binding) {
+                    eprintln!("Failed to register hotkey: {:?}", e);
+                    let _ = guard
+                        .gpui_tx
+                        .send(AppEvent::HotkeyConflict(binding.clone()));
+                }
             }
 
             // Register taskbar hotkey only in separate mode
@@ -322,11 +324,15 @@ unsafe extern "system" fn wnd_proc(
                 let taskbar_hotkey = guard.settings.taskbar_hotkey.clone();
                 drop(guard);
 
-                // Re-register icon hotkey
-                if let Err(e) = hotkey::reregister(hwnd, &binding) {
-                    eprintln!("Failed to re-register hotkey: {:?}", e);
-                    let guard = state.lock().unwrap();
-                    let _ = guard.gpui_tx.send(AppEvent::HotkeyConflict(binding));
+                // Re-register icon hotkey (or unregister if cleared)
+                if let Some(ref b) = binding {
+                    if let Err(e) = hotkey::reregister(hwnd, b) {
+                        eprintln!("Failed to re-register hotkey: {:?}", e);
+                        let guard = state.lock().unwrap();
+                        let _ = guard.gpui_tx.send(AppEvent::HotkeyConflict(b.clone()));
+                    }
+                } else {
+                    hotkey::unregister(hwnd);
                 }
 
                 // Re-register taskbar hotkey (or unregister if in combined mode)
