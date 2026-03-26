@@ -14,6 +14,13 @@
   <a href="https://github.com/EternityX/polterdesk/issues">Report a Bug</a>
 </p>
 
+
+<div align="center">
+
+[![CI](https://github.com/EternityX/polterdesk/actions/workflows/ci.yml/badge.svg?branch=master&event=push)](https://github.com/EternityX/polterdesk/actions/workflows/ci.yml)
+
+</div>
+
 ---
 
 <p align="center">
