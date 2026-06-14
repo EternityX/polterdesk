@@ -1,4 +1,5 @@
 pub mod app_state;
+pub mod boot;
 pub mod desktop;
 pub mod settings;
 pub mod startup;
