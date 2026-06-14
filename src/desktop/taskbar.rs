@@ -1,4 +1,3 @@
-use crate::settings::Settings;
 use windows::Win32::Foundation::{HWND, LPARAM, RECT};
 use windows::Win32::UI::Shell::{SHAppBarMessage, APPBARDATA};
 use windows::Win32::UI::WindowsAndMessaging::FindWindowW;
@@ -15,6 +14,13 @@ pub fn get_taskbar_state() -> u32 {
     // The APPBARDATA struct is fully initialized with cbSize and a valid taskbar hWnd.
     let result = unsafe { SHAppBarMessage(ABM_GETSTATE, &mut abd) };
     result as u32
+}
+
+/// Returns true if the taskbar is currently in auto-hide mode (ABS_AUTOHIDE set).
+/// This is an authoritative read of the live OS state, but note it cannot tell you
+/// *who* enabled auto-hide (us vs. the user's own preference).
+pub fn is_autohide_active() -> bool {
+    (get_taskbar_state() & ABS_AUTOHIDE) != 0
 }
 
 /// Toggles the taskbar auto-hide state.
@@ -55,26 +61,6 @@ pub fn set_taskbar_autohide(
         unsafe { SHAppBarMessage(ABM_SETSTATE, &mut abd) };
 
         Ok(None)
-    }
-}
-
-/// Checks if the taskbar was left in app-controlled auto-hide from a previous crash.
-/// If `settings.taskbar_original_state` is `Some`, restores the taskbar and clears the field.
-pub fn restore_taskbar_if_needed(settings: &mut Settings) -> windows::core::Result<bool> {
-    if let Some(original) = settings.taskbar_original_state.take() {
-        let mut abd = make_appbardata();
-        let restore_flags = if original == 0 {
-            ABS_ALWAYSONTOP
-        } else {
-            original | ABS_ALWAYSONTOP
-        };
-        abd.lParam = LPARAM(restore_flags as isize);
-        // SAFETY: ABM_SETSTATE restores the taskbar to its pre-crash state.
-        // The APPBARDATA struct has a valid taskbar hWnd and lParam set to the restore flags.
-        unsafe { SHAppBarMessage(ABM_SETSTATE, &mut abd) };
-        Ok(true)
-    } else {
-        Ok(false)
     }
 }
 

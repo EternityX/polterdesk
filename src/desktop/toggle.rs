@@ -1,7 +1,5 @@
 use windows::Win32::Foundation::HWND;
-use windows::Win32::UI::WindowsAndMessaging::{
-    IsWindowVisible, ShowWindow, SW_HIDE, SW_SHOWNA,
-};
+use windows::Win32::UI::WindowsAndMessaging::{IsWindowVisible, ShowWindow, SW_HIDE, SW_SHOWNA};
 
 /// Hides the desktop icon listview.
 pub fn hide_icons(listview: HWND) {
@@ -22,7 +20,6 @@ pub fn show_icons(listview: HWND) {
 }
 
 /// Returns true if the desktop icon listview is currently visible.
-#[allow(dead_code)]
 pub fn is_visible(listview: HWND) -> bool {
     // SAFETY: listview is a valid HWND. IsWindowVisible is a read-only query.
     unsafe { IsWindowVisible(listview).as_bool() }

@@ -76,6 +76,84 @@ impl AppState {
     }
 }
 
+/// The app's world-model resolved from the real OS state at startup.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct InitialState {
+    pub toggle_state: ToggleState,
+    pub taskbar_hidden: bool,
+    pub taskbar_original_state: Option<u32>,
+    /// True when settings.taskbar_original_state is stale and must be cleared/saved.
+    pub clear_persisted_original: bool,
+}
+
+/// Pure resolver for the initial app state. Decides what the app should believe
+/// given the *observed* OS facts plus the persisted taskbar original, WITHOUT
+/// changing the desktop. Kept free of WinAPI so it can be unit-tested exhaustively.
+///
+/// - Icons: IsWindowVisible is authoritative, so we adopt it verbatim.
+/// - Taskbar: the auto-hide bit is reliable as a fact but ambiguous as to cause,
+///   so we only claim control when we have a persisted record AND auto-hide is
+///   still active. If the record exists but auto-hide is off, the user/Explorer
+///   reset it externally and we drop the stale record. With no record we never
+///   claim auto-hide (it's the user's own preference).
+pub fn resolve_initial_state(
+    icons_visible: bool,
+    taskbar_autohide: bool,
+    persisted_original: Option<u32>,
+) -> InitialState {
+    let toggle_state = if icons_visible {
+        ToggleState::Visible
+    } else {
+        ToggleState::Hidden
+    };
+
+    let (taskbar_hidden, taskbar_original_state, clear_persisted_original) =
+        match persisted_original {
+            // We enabled auto-hide before and it's still on → resume control.
+            Some(orig) if taskbar_autohide => (true, Some(orig), false),
+            // We had control but auto-hide is off now → external reset; drop stale record.
+            Some(_) => (false, None, true),
+            // No record → never claim the taskbar, even if auto-hide happens to be on.
+            None => (false, None, false),
+        };
+
+    InitialState {
+        toggle_state,
+        taskbar_hidden,
+        taskbar_original_state,
+        clear_persisted_original,
+    }
+}
+
+/// Queries the live OS state and resolves the initial app state.
+///
+/// Side effects are limited to clearing a stale persisted taskbar original (and
+/// saving settings) — it never changes desktop icon or taskbar visibility. Returns
+/// the resolved state and the desktop listview handle (raw isize) if found, so the
+/// caller can seed AppState without a second lookup.
+pub fn detect_initial_state(settings: &mut Settings) -> (InitialState, Option<isize>) {
+    use crate::desktop::{finder, taskbar, toggle};
+
+    let listview = finder::find_desktop_listview();
+    // If we can't locate the listview, assume Visible — the safest default, and the
+    // next toggle re-resolves the handle anyway.
+    let icons_visible = listview.map(toggle::is_visible).unwrap_or(true);
+    let taskbar_autohide = taskbar::is_autohide_active();
+
+    let resolved = resolve_initial_state(
+        icons_visible,
+        taskbar_autohide,
+        settings.taskbar_original_state,
+    );
+
+    if resolved.clear_persisted_original {
+        settings.taskbar_original_state = None;
+        let _ = settings.save();
+    }
+
+    (resolved, listview.map(|h| h.0 as isize))
+}
+
 /// Toggles the taskbar auto-hide state. Updates AppState and persists to settings.
 pub fn perform_taskbar_toggle(state: &SharedState) {
     let mut guard = state.lock().unwrap();

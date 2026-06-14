@@ -130,6 +130,9 @@ fn run_message_loop(state: SharedState) {
             }
         };
         tray::add(hwnd, hicon);
+        // Reflect the startup-detected state (icons/taskbar) in the tooltip immediately,
+        // rather than leaving the default "Icons visible" until the first toggle.
+        update_tray_tooltip(hwnd, &state);
 
         // Install the low-level mouse hook for desktop double-click detection
         let mouse_hook = hook::install(state.clone());
@@ -158,7 +161,11 @@ fn run_message_loop(state: SharedState) {
                     update_tray_tooltip(hwnd, &state);
                 }
                 WM_TIMER if msg.wParam.0 == TIMER_NATIVE_CHECK => {
-                    check_native_toggle(&state);
+                    // If a native icon toggle or external taskbar change was detected,
+                    // the internal state moved — refresh the tooltip to match.
+                    if check_native_toggle(&state) {
+                        update_tray_tooltip(hwnd, &state);
+                    }
                 }
                 _ => {}
             }
@@ -181,8 +188,12 @@ fn run_message_loop(state: SharedState) {
 
 /// Checks if the desktop listview became visible externally while we think it's hidden.
 /// Also checks if the taskbar auto-hide state was changed externally.
-fn check_native_toggle(state: &SharedState) {
+///
+/// Returns true if the internal state was changed as a result, so the caller can
+/// refresh anything derived from it (e.g. the tray tooltip).
+fn check_native_toggle(state: &SharedState) -> bool {
     let mut guard = state.lock().unwrap();
+    let mut changed = false;
 
     // Check desktop icon native toggle
     if guard.toggle_state == ToggleState::Hidden {
@@ -196,6 +207,7 @@ fn check_native_toggle(state: &SharedState) {
                 guard.toggle_state = ToggleState::Visible;
                 guard.snapshot = None;
                 let _ = guard.gpui_tx.send(AppEvent::NativeToggleDetected);
+                changed = true;
             }
         }
     }
@@ -211,8 +223,11 @@ fn check_native_toggle(state: &SharedState) {
             guard.taskbar_original_state = None;
             guard.settings.taskbar_original_state = None;
             let _ = guard.settings.save();
+            changed = true;
         }
     }
+
+    changed
 }
 
 fn update_tray_tooltip(hwnd: HWND, state: &SharedState) {

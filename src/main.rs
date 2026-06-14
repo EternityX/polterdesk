@@ -28,19 +28,25 @@ fn main() {
 
     let mut settings = Settings::load();
 
-    // Crash recovery: restore taskbar if it was left in app-controlled auto-hide
-    match desktop::taskbar::restore_taskbar_if_needed(&mut settings) {
-        Ok(true) => {
-            let _ = settings.save();
-        }
-        Ok(false) => {}
-        Err(e) => eprintln!("Taskbar crash recovery failed: {e}"),
-    }
+    // Read the actual desktop-icon and taskbar state now, so the app's
+    // world-model matches the OS instead of assuming icons-visible / taskbar-normal.
+    // This is what prevents stuck states — e.g. icons left hidden by a previous crash
+    // (SW_HIDE survives our process), or a taskbar whose auto-hide was reset externally.
+    // It reads state only; it never changes icon or taskbar visibility.
+    // See app_state::resolve_initial_state.
+    let (initial, listview_hwnd) = app_state::detect_initial_state(&mut settings);
 
     // Channel for WinAPI thread -> GPUI thread communication
     let (gpui_tx, gpui_rx) = mpsc::channel::<AppEvent>();
 
     let state = AppState::new(settings.clone(), gpui_tx);
+    {
+        let mut guard = state.lock().unwrap();
+        guard.toggle_state = initial.toggle_state;
+        guard.taskbar_hidden = initial.taskbar_hidden;
+        guard.taskbar_original_state = initial.taskbar_original_state;
+        guard.listview_hwnd = listview_hwnd;
+    }
 
     // Spawn the WinAPI background thread (hotkey, tray, mouse hook).
     // Done before the font wait so the tray icon appears promptly at boot.
