@@ -32,7 +32,11 @@ pub fn set_startup(enabled: bool) {
                 }
             };
 
-            let wide: Vec<u16> = exe_path.encode_utf16().chain(std::iter::once(0)).collect();
+            // Quote the path so Explorer launches it correctly even when it contains
+            // spaces (e.g. "...\app (1).exe"). An unquoted REG_SZ makes CreateProcess
+            // token-search on spaces, which can launch the wrong exe or fail to start.
+            let quoted = format!("\"{exe_path}\"");
+            let wide: Vec<u16> = quoted.encode_utf16().chain(std::iter::once(0)).collect();
             let data = std::slice::from_raw_parts(wide.as_ptr() as *const u8, wide.len() * 2);
 
             // SAFETY: Writing a REG_SZ value with valid data to an open registry key.
