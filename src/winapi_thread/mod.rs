@@ -162,8 +162,11 @@ fn run_message_loop(state: SharedState) {
                 }
                 WM_TIMER if msg.wParam.0 == TIMER_NATIVE_CHECK => {
                     // If a native icon toggle or external taskbar change was detected,
-                    // the internal state moved — refresh the tooltip to match.
-                    if check_native_toggle(&state) {
+                    // the internal state moved — refresh the tooltip to match. Bind the
+                    // result first so this side-effecting check (it can save settings to
+                    // disk) is not lifted into the match guard.
+                    let state_changed = check_native_toggle(&state);
+                    if state_changed {
                         update_tray_tooltip(hwnd, &state);
                     }
                 }
