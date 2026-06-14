@@ -18,6 +18,7 @@
 <div align="center">
 
 [![CI](https://github.com/EternityX/polterdesk/actions/workflows/ci.yml/badge.svg?branch=master&event=push)](https://github.com/EternityX/polterdesk/actions/workflows/ci.yml)
+[![Crate Version](https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2FEternityX%2Fpolterdesk%2Fmaster%2FCargo.toml&query=$.package.version&label=version)](https://github.com/EternityX/polterdesk)
 
 </div>
 
