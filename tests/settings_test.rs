@@ -16,19 +16,23 @@ fn temp_settings_path() -> PathBuf {
 #[test]
 fn serialize_deserialize_roundtrip() {
     let settings = Settings {
-        hotkey: HotkeyBinding {
+        hotkey: Some(HotkeyBinding {
             modifiers: vec![Modifier::Ctrl, Modifier::Shift],
             key: VirtualKey::Char('D'),
-        },
+        }),
         start_with_windows: true,
         theme_mode: ThemeMode::Light,
+        ..Settings::default()
     };
 
     let json = serde_json::to_string(&settings).unwrap();
     let deserialized: Settings = serde_json::from_str(&json).unwrap();
 
-    assert_eq!(deserialized.hotkey.modifiers, vec![Modifier::Ctrl, Modifier::Shift]);
-    assert_eq!(deserialized.hotkey.key, VirtualKey::Char('D'));
+    let hotkey = deserialized
+        .hotkey
+        .expect("hotkey should be present after roundtrip");
+    assert_eq!(hotkey.modifiers, vec![Modifier::Ctrl, Modifier::Shift]);
+    assert_eq!(hotkey.key, VirtualKey::Char('D'));
     assert!(deserialized.start_with_windows);
     assert_eq!(deserialized.theme_mode, ThemeMode::Light);
 }
@@ -36,8 +40,11 @@ fn serialize_deserialize_roundtrip() {
 #[test]
 fn default_settings_has_ctrl_alt_h() {
     let settings = Settings::default();
-    assert_eq!(settings.hotkey.modifiers, vec![Modifier::Ctrl, Modifier::Alt]);
-    assert_eq!(settings.hotkey.key, VirtualKey::Char('H'));
+    let hotkey = settings
+        .hotkey
+        .expect("default settings should have a hotkey");
+    assert_eq!(hotkey.modifiers, vec![Modifier::Ctrl, Modifier::Alt]);
+    assert_eq!(hotkey.key, VirtualKey::Char('H'));
     assert!(!settings.start_with_windows);
     assert_eq!(settings.theme_mode, ThemeMode::Dark);
 }

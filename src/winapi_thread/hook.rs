@@ -144,6 +144,13 @@ unsafe extern "system" fn mouse_hook_proc(ncode: i32, wparam: WPARAM, lparam: LP
         if !hit_icon {
             // perform_toggle handles taskbar too when hide_taskbar_with_icons is on
             crate::app_state::perform_toggle(state);
+            // Refresh the tray tooltip so it reflects the new state. The double-click
+            // path mutates state exactly like the hotkey/menu handlers (which refresh);
+            // without this the tooltip goes stale, e.g. shows "Visible" after a hide.
+            let tray_hwnd = state.lock().unwrap().winapi_hwnd;
+            if let Some(raw) = tray_hwnd {
+                super::update_tray_tooltip(windows::Win32::Foundation::HWND(raw as *mut _), state);
+            }
             return LRESULT(1); // Swallow the double-click
         }
     }
