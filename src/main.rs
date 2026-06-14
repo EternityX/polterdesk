@@ -1,6 +1,7 @@
 #![windows_subsystem = "windows"]
 
 mod app_state;
+mod boot;
 mod desktop;
 mod settings;
 mod startup;
@@ -41,8 +42,15 @@ fn main() {
 
     let state = AppState::new(settings.clone(), gpui_tx);
 
-    // Spawn the WinAPI background thread (hotkey, tray, mouse hook)
+    // Spawn the WinAPI background thread (hotkey, tray, mouse hook).
+    // Done before the font wait so the tray icon appears promptly at boot.
     let _winapi_handle = winapi_thread::spawn(state.clone());
+
+    // At logon the Windows Font Cache Service may still be starting, which makes
+    // gpui::Application::new() -> WindowsPlatform::new() fail in DirectWrite and show a
+    // system-modal "Failed to launch" error box, then abort. Gate GPUI construction on
+    // the font subsystem actually being ready. See boot::wait_for_font_subsystem.
+    boot::wait_for_font_subsystem();
 
     // Start the GPUI application on the main thread
     gpui::Application::new().run(move |cx| {

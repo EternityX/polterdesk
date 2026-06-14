@@ -26,6 +26,7 @@ features = [
     "Win32_System_Registry",
     "Win32_System_LibraryLoader",
     "Win32_Graphics_Gdi",
+    "Win32_Graphics_DirectWrite",
 ]
 
 [profile.release]
